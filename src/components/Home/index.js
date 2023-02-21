@@ -10,29 +10,29 @@ const categoriesList = [
   {id: 'REACT', displayText: 'React'},
 ]
 
+const apiStatusConstants = {
+  initial: 'INITIAL',
+  inProgress: 'IN_PROGRESS',
+  failure: 'FAILURE',
+  success: 'SUCCESS',
+}
+
 class Home extends Component {
-  state = {category: categoriesList[0].id, list: [], isLoader: false}
+  state = {
+    category: categoriesList[0].id,
+    list: [],
+    apiStatus: apiStatusConstants.initial,
+  }
 
   componentDidMount() {
     this.projectShowcase()
   }
 
-  onChangeCategory = e => {
-    this.setState({
-      category: categoriesList.filter(
-        each => each.displayText === e.target.value,
-      ),
-    })
-
-    console.log(e.target.value)
-  }
-
   projectShowcase = async () => {
+    this.setState({apiStatus: apiStatusConstants.inProgress})
     const {category} = this.state
-    console.log(category)
-    this.setState({isLoader: true})
-
     const url = `https://apis.ccbp.in/ps/projects?category=${category}`
+    console.log(url)
 
     const options = {
       method: 'GET',
@@ -42,16 +42,36 @@ class Home extends Component {
 
     if (response.ok === true) {
       const data = await response.json()
-
       const fetchData = data.projects.map(each => ({
         id: each.id,
         name: each.name,
         imageUrl: each.image_url,
       }))
 
-      this.setState({list: fetchData, isLoader: false})
+      this.setState({list: fetchData, apiStatus: apiStatusConstants.success})
+    } else {
+      this.setState({apiStatus: apiStatusConstants.failure})
     }
   }
+
+  retry = () => {
+    this.projectShowcase()
+  }
+
+  failureView = () => (
+    <div>
+      <img
+        src="https://assets.ccbp.in/frontend/react-js/projects-showcase/failure-img.png"
+        alt="failure view"
+      />
+
+      <h1>Oops! Something Went Wrong</h1>
+      <p>We cannot seem to find the page you are looking for</p>
+      <button type="button" onClick={this.retry}>
+        Retry
+      </button>
+    </div>
+  )
 
   loaderView = () => (
     <div data-testid="loader">
@@ -63,31 +83,50 @@ class Home extends Component {
     const {list} = this.state
 
     return (
-      <div>
+      <ul>
         {list.map(each => (
           <ProjectShowcase key={each.id} Details={each} />
         ))}
-      </div>
+      </ul>
     )
   }
 
+  renderPageDetails = () => {
+    const {apiStatus} = this.state
+
+    switch (apiStatus) {
+      case apiStatusConstants.success:
+        return this.projectView()
+
+      case apiStatusConstants.failure:
+        return this.failureView()
+
+      case apiStatusConstants.inProgress:
+        return this.loaderView()
+
+      default:
+        return null
+    }
+  }
+
+  onChangeCategory = event => {
+    this.setState({category: event.target.value})
+    this.projectShowcase()
+  }
+
   render() {
-    const {isLoader} = this.state
+    const {category} = this.state
     return (
       <div>
-        <select name="category">
+        <select onChange={this.onChangeCategory} value={category}>
           {categoriesList.map(each => (
-            <option
-              key={each.id}
-              value={each.displayText}
-              onChange={this.onChangeCategory}
-            >
+            <option key={each.id} value={each.id}>
               {each.displayText}
             </option>
           ))}
         </select>
 
-        <div>{isLoader ? this.loaderView() : this.projectView()}</div>
+        <div>{this.renderPageDetails()}</div>
       </div>
     )
   }
